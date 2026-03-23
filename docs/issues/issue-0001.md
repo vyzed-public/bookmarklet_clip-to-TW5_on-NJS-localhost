@@ -1,4 +1,4 @@
-# #1: Enable: CI/CD to record issues ino docs/issues
+# #1: Enable: CI/CD to record issues into docs/issues
 
 **State:** OPEN
 **Author:** vyzed
