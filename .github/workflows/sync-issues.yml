@@ -1,0 +1,79 @@
+name: Sync Issues to Docs
+
+on:
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled, deleted]
+  issue_comment:
+    types: [created, edited, deleted]
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync issue to markdown
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          
+          gh issue view "$ISSUE_NUMBER" \
+            --repo ${{ github.repository }} \
+            --json number,title,body,state,labels,createdAt,closedAt,author,comments \
+            > /tmp/issue.json
+          
+          mkdir -p docs/issues
+          
+          python3 << 'PYTHON'
+          import json, os
+          
+          with open("/tmp/issue.json") as f:
+              issue = json.load(f)
+          
+          n = issue["number"]
+          md = []
+          md.append(f"# #{n}: {issue['title']}")
+          md.append("")
+          md.append(f"**State:** {issue['state']}")
+          md.append(f"**Author:** {issue['author']['login']}")
+          md.append(f"**Created:** {issue['createdAt']}")
+          if issue.get("closedAt"):
+              md.append(f"**Closed:** {issue['closedAt']}")
+          if issue.get("labels"):
+              labels = ", ".join(l["name"] for l in issue["labels"])
+              md.append(f"**Labels:** {labels}")
+          md.append("")
+          md.append("---")
+          md.append("")
+          md.append(issue.get("body") or "*No description provided.*")
+          
+          if issue.get("comments"):
+              md.append("")
+              md.append("---")
+              md.append("")
+              md.append("## Comments")
+              for c in issue["comments"]:
+                  md.append("")
+                  md.append(f"### {c['author']['login']} — {c['createdAt']}")
+                  md.append("")
+                  md.append(c["body"])
+          
+          filename = f"docs/issues/issue-{n:04d}.md"
+          with open(filename, "w") as f:
+              f.write("\n".join(md) + "\n")
+          PYTHON
+
+      - name: Commit and push
+        run: |
+          cd $GITHUB_WORKSPACE
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/issues/
+          git diff --cached --quiet && exit 0
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          git commit -m "docs: sync issue #${ISSUE_NUMBER}"
+          git push
