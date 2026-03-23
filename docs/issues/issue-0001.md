@@ -1,4 +1,4 @@
-# #1: Enable: CI/CD to record issues into docs/issues
+# #1: Enable: GitHub Workflow Automation to record issues into docs/issues
 
 **State:** OPEN
 **Author:** vyzed
