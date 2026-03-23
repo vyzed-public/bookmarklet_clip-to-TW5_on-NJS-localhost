@@ -15,10 +15,11 @@
 
 ## Comments
 
-### vyzed — 2026-03-23T04:57:56Z
-
-Let's make a test comment...
-
 ### vyzed — 2026-03-23T22:09:35Z
 
 Let's make a second comment to double-check things are working...
+
+### vyzed — 2026-03-23T22:10:44Z
+
+Let's make a third comment, and delete the first comment.
+This should leave us with only two comments.
