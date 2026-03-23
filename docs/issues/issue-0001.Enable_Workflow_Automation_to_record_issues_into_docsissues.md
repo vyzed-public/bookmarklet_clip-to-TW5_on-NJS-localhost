@@ -9,3 +9,11 @@
 ### Our process:
 1. Use the web GUI to create new file: `.github/workflows/sync-issues.yml`
 2. That contains the **Workflow Automation** code suggested by Claude Code 
+
+---
+
+## Comments
+
+### vyzed — 2026-03-23T04:57:56Z
+
+Let's make a test comment...
