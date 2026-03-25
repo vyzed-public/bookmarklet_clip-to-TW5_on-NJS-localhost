@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save to TiddlyWiki</title>
+    <!-- Location: ~/my/files/local/lfs.10-KBs/kb.tw5/test.new.tw5/files/ -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            min-width: 400px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            max-width: 500px;
+        }
+        
+        h1 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: #555;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="url"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        input[type="text"]:focus,
+        input[type="url"]:focus {
+            outline: none;
+            border-color: #5778d8;
+            box-shadow: 0 0 0 3px rgba(87, 120, 216, 0.1);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .btn-save {
+            background: #5778d8;
+            color: white;
+        }
+        
+        .btn-save:hover {
+            background: #4662c5;
+        }
+        
+        .btn-cancel {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        .btn-cancel:hover {
+            background: #d0d0d0;
+        }
+        
+        .note {
+            font-size: 12px;
+            color: #999;
+            margin-top: 8px;
+        }
+        
+        .warning {
+            font-size: 12px;
+            color: #f39c12;
+            margin-top: 8px;
+            padding: 8px;
+            background: #fff9e6;
+            border-left: 3px solid #f39c12;
+            border-radius: 3px;
+            display: none;
+        }
+        
+        .warning.visible {
+            display: block;
+        }
+    </style>
+    <script src="funcs.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>📌 Save to TiddlyWiki</h1>
+        
+        <form id="bookmarkForm" onsubmit="handleSubmit(event)">
+            <input type="hidden" id="originalTitle" name="originalTitle">
+            
+            <div class="form-group">
+                <label for="titleInput">Title <span id="charCount" style="color: #999; font-weight: normal;"></span></label>
+                <input 
+                    type="text" 
+                    id="titleInput" 
+                    name="title" 
+                    required
+                    autofocus
+                    oninput="updateCharCount()"
+                >
+                <div class="note">Cross-platform safe: removes forbidden characters (: &lt; &gt; " / \ * ? | [ ] { }), trailing dots, reserved names.</div>
+                <div id="encodingWarning" class="warning">
+                    ⚠️ Title contains many spaces or special characters - URL encoding will increase file size.
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="urlInput">URL</label>
+                <input 
+                    type="url" 
+                    id="urlInput" 
+                    name="url" 
+                    readonly
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="tagsInput">Tags</label>
+                <input 
+                    type="text" 
+                    id="tagsInput" 
+                    name="tags" 
+                    placeholder="bookmark link"
+                >
+                <div class="note">Space-separated tags</div>
+            </div>
+            
+            <div class="button-group">
+                <button type="submit" class="btn-save">Save</button>
+                <button type="button" class="btn-cancel" onclick="window.close()">Cancel</button>
+            </div>
+        </form>
+    </div>
+    
+    <script>
+        // Populate form from URL parameters on load
+        window.addEventListener('DOMContentLoaded', function() {
+            const params = getUrlParams();
+            
+            document.getElementById('titleInput').value = params.title;
+            document.getElementById('originalTitle').value = params.tabTitle; // Use tab title for link
+            document.getElementById('urlInput').value = params.url;
+            document.getElementById('tagsInput').value = 'bookmark link';
+            
+            // Fetch base path config to calculate dynamic max encoded length
+            fetchBasePathConfig();
+            
+            updateCharCount(); // Initial count
+        });
+        
+        function updateCharCount() {
+            const titleInput = document.getElementById('titleInput');
+            const charCount = document.getElementById('charCount');
+            const encodingWarning = document.getElementById('encodingWarning');
+            const title = titleInput.value;
+            const length = title.length;
+            
+            // Calculate encoded length
+            const encoded = encodeURIComponent(title);
+            const encodedLength = encoded.length;
+            
+            // Use dynamic maxEncodedLength (from funcs.js) minus space for "..."
+            const max = typeof maxEncodedLength !== 'undefined' ? (maxEncodedLength - 10) : 100;
+            const warningThreshold = Math.floor(max * 0.8); // 80% of max
+            
+            // Check encoding efficiency (how much did it expand?)
+            const expansionRatio = length > 0 ? encodedLength / length : 1;
+            
+            if (encodedLength > max) {
+                charCount.textContent = `(${length} chars, ${encodedLength} encoded - will be truncated)`;
+                charCount.style.color = '#e74c3c';
+            } else if (encodedLength > warningThreshold) {
+                charCount.textContent = `(${length} chars, ${encodedLength}/${max} encoded bytes)`;
+                charCount.style.color = '#f39c12';
+            } else {
+                charCount.textContent = `(${length} chars, ${encodedLength} encoded bytes)`;
+                charCount.style.color = '#999';
+            }
+            
+            // Show encoding warning if expansion is significant (>30% increase)
+            if (expansionRatio > 1.3 && length > 20) {
+                encodingWarning.classList.add('visible');
+            } else {
+                encodingWarning.classList.remove('visible');
+            }
+        }
+        
+        function handleSubmit(event) {
+            event.preventDefault();
+            
+            const title = document.getElementById('titleInput').value;
+            const originalTitle = document.getElementById('originalTitle').value;
+            const url = document.getElementById('urlInput').value;
+            const tags = document.getElementById('tagsInput').value;
+            
+            // Validate title after sanitization
+            const testSanitized = title
+                .replace(/[\[\]\{\}\|:<>"\/\\*?]/g, '')
+                .replace(/[\x00-\x1F\x7F]/g, '')
+                .replace(/\.+$/g, '')
+                .trim();
+            
+            if (!testSanitized || testSanitized.length === 0) {
+                alert('Error: Title contains only forbidden characters. Please use a different title.');
+                return;
+            }
+            
+            saveTiddler(title, url, tags, originalTitle);
+        }
+    </script>
+</body>
+</html>

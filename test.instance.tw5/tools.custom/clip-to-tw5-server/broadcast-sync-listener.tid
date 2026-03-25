@@ -1,0 +1,36 @@
+title: $:/plugins/custom/broadcast-sync
+type: application/javascript
+module-type: startup
+
+exports.name = "broadcast-sync";
+exports.platforms = ["browser"];
+exports.after = ["syncer"];
+exports.synchronous = true;
+
+exports.startup = function() {
+    // Only run in browser context
+    if (typeof BroadcastChannel === 'undefined') {
+        return;
+    }
+    
+    try {
+        const channel = new BroadcastChannel('tiddlywiki-sync');
+        
+        channel.onmessage = function(event) {
+            if (event.data && event.data.action === 'syncNow') {
+                console.log('[TiddlyWiki] Received sync message, triggering syncFromServer()');
+                
+                // Trigger sync from server
+                if ($tw.syncer && typeof $tw.syncer.syncFromServer === 'function') {
+                    $tw.syncer.syncFromServer();
+                } else {
+                    console.error('[TiddlyWiki] syncer.syncFromServer not available');
+                }
+            }
+        };
+        
+        console.log('[TiddlyWiki] BroadcastChannel listener initialized');
+    } catch (e) {
+        console.error('[TiddlyWiki] BroadcastChannel initialization failed:', e);
+    }
+};
